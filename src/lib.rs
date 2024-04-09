@@ -1,45 +1,10 @@
 use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 
-trait Stringify {
-    fn pad_left(&self) -> String;
-    fn pad_right(&self) -> String;
-    fn prefix(&self, prefix: &str) -> String;
-    fn suffix(&self, suffix: &str) -> String;
-}
-
-impl<T> Stringify for T where T: Display {
-    fn pad_left(&self) -> String {
-        self.prefix(" ")
-    }
-
-    fn pad_right(&self) -> String {
-        self.suffix(" ")
-    }
-
-    fn prefix(&self, prefix: &str) -> String {
-        let str = self.to_string();
-        if str.is_empty() {
-            str
-        } else {
-            prefix.to_string() + &str
-        }
-    }
-
-    fn suffix(&self, suffix: &str) -> String {
-        let str = self.to_string();
-        if str.is_empty() {
-            str
-        } else {
-            str + suffix
-        }
-    }
-}
-
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct TypeSpec {
     name: String,
-    generics: Vec<TypeSpec>,
+    type_parameters: Vec<TypeSpec>,
     borrow: Reference,
     lifetimes: Vec<String>,
     mutable: Mutable,
@@ -51,8 +16,8 @@ impl TypeSpec {
     }
 
     pub fn to_field_string(&self) -> String {
-        let generics = if !self.generics.is_empty() {
-            format!("{}", self.generics.iter().map(|it| {
+        let generics = if !self.type_parameters.is_empty() {
+            format!("{}", self.type_parameters.iter().map(|it| {
                 let mut new = it.clone();
                 new.mutable = Mutable::Immutable;
                 new.to_field_string()
@@ -81,8 +46,8 @@ impl TypeSpec {
     }
 
     pub fn to_parameter_string(&self) -> String {
-        let generics = if !self.generics.is_empty() {
-            format!("{}", self.generics.iter().map(|it| {
+        let generics = if !self.type_parameters.is_empty() {
+            format!("{}", self.type_parameters.iter().map(|it| {
                 let mut new = it.clone();
                 new.mutable = Mutable::Immutable;
                 new.to_field_string()
@@ -136,17 +101,17 @@ impl TypeSpecBuilder {
         self
     }
 
-    pub fn generic(mut self, generic: TypeSpec) -> Self {
+    pub fn type_param(mut self, generic: TypeSpec) -> Self {
         self.generics.push(generic);
         self
     }
 
-    pub fn generics(mut self, generics: Vec<TypeSpec>) -> Self {
+    pub fn type_params(mut self, generics: Vec<TypeSpec>) -> Self {
         self.generics.extend(generics);
         self
     }
 
-    pub fn borrow(mut self, borrow: Reference) -> Self {
+    pub fn reference(mut self, borrow: Reference) -> Self {
         self.borrow = borrow;
         self
     }
@@ -169,7 +134,7 @@ impl TypeSpecBuilder {
     pub fn build(self) -> TypeSpec {
         TypeSpec {
             name: self.name,
-            generics: self.generics,
+            type_parameters: self.generics,
             borrow: self.borrow,
             lifetimes: self.lifetimes,
             mutable: self.mutable,
@@ -445,6 +410,41 @@ impl Display for Mutable {
     }
 }
 
+trait StringExt {
+    fn pad_left(&self) -> String;
+    fn pad_right(&self) -> String;
+    fn prefix(&self, prefix: &str) -> String;
+    fn suffix(&self, suffix: &str) -> String;
+}
+
+impl<T> StringExt for T where T: Display {
+    fn pad_left(&self) -> String {
+        self.prefix(" ")
+    }
+
+    fn pad_right(&self) -> String {
+        self.suffix(" ")
+    }
+
+    fn prefix(&self, prefix: &str) -> String {
+        let str = self.to_string();
+        if str.is_empty() {
+            str
+        } else {
+            prefix.to_string() + &str
+        }
+    }
+
+    fn suffix(&self, suffix: &str) -> String {
+        let str = self.to_string();
+        if str.is_empty() {
+            str
+        } else {
+            str + suffix
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use indoc::indoc;
@@ -456,19 +456,19 @@ mod test {
         let expected_parameter = "&'a mut Example<'a, 'b, String, i32, &'a Example2<'a, 'b, String, i32>>".to_string();
 
         let complex_type = TypeSpec::builder("Example2")
-            .generic(TypeSpec::builder("String").build())
-            .generic(TypeSpec::builder("i32").build())
-            .borrow(Reference::Borrowed("a".to_string()))
+            .type_param(TypeSpec::builder("String").build())
+            .type_param(TypeSpec::builder("i32").build())
+            .reference(Reference::Borrowed("a".to_string()))
             .lifetime("a")
             .lifetime("b")
             .mutable(Mutable::Mutable)
             .build();
 
         let type_spec = TypeSpec::builder("Example")
-            .generic(TypeSpec::builder("String").build())
-            .generic(TypeSpec::builder("i32").build())
-            .generic(complex_type)
-            .borrow(Reference::Borrowed("a".to_string()))
+            .type_param(TypeSpec::builder("String").build())
+            .type_param(TypeSpec::builder("i32").build())
+            .type_param(complex_type)
+            .reference(Reference::Borrowed("a".to_string()))
             .lifetime("a")
             .lifetime("b")
             .mutable(Mutable::Mutable)
